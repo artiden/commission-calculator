@@ -1,0 +1,25 @@
+{
+    "name": "artiden/exchange",
+    "description": "Done transaction commissions calculator",
+    "type": "project",
+    "license": "Apache-2.0",
+    "autoload": {
+        "psr-4": {
+            "artiden\\exchange\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Denys Reveha"
+        }
+    ],
+    "require": {
+        "symfony/dotenv": "^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "10.0.1"
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit tests"
+    }
+}
