@@ -1,4 +1,5 @@
 This project was created purely for testing. In this regard, a file with “secret” information and so on was added. (The information is not secret, but test information. So anyone can use it.)
+Spend time - aboud 5h. Most of the time was spent for understanding what especially an old code do and how :-)
 
 # Notes:
 
