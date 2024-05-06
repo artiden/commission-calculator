@@ -50,20 +50,20 @@ class CommissionCalculator {
 
             $isEuCountry = CountryHelper::isEu($binData->country->alpha2);
 
-            try {
-                $rate = $this->rateProvider->getRate($transaction->currency);
-            } catch (RatesUnavailableException | UnsupportedCurrencyException $exception) {
-                $errors[] = sprintf(
-                    "Error processing transaction for BIN %s: %s",
-                    $transaction->bin,
-                    $exception->getMessage()
-                );
-                continue;
-            }
-
             if ($transaction->currency === 'EUR') {
                 $amount = $transaction->amount;
             } else {
+                try {
+                    $rate = $this->rateProvider->getRate($transaction->currency);
+                } catch (RatesUnavailableException | UnsupportedCurrencyException $exception) {
+                    $errors[] = sprintf(
+                        "Error processing transaction for BIN %s: %s",
+                        $transaction->bin,
+                        $exception->getMessage()
+                    );
+                    continue;
+                }
+
                 $amount = $transaction->amount / $rate;
             }
 
