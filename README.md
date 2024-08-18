@@ -17,7 +17,7 @@ docker-compose up -d
 
 2. To enter to the Composer container and install all required Composer packages, you can use:
 ```
-docker exec -it composer_app bash
+docker exec -it composer_app sh
 composer install
 ```
 
@@ -38,7 +38,7 @@ php app.php input.txt
 To run an unit tests, you can follow:
 To enter to the Composer container, you can use:
 ```
-docker exec -it composer_app bash
+docker exec -it composer_app sh
 ```
 
 In the folder where project is located.

@@ -5,6 +5,8 @@ namespace artiden\exchange\providers\rate;
 use artiden\exchange\providers\rate\exceptions\RatesUnavailableException;
 use artiden\exchange\providers\rate\exceptions\UnsupportedCurrencyException;
 use artiden\exchange\providers\rate\RateProviderInterface;
+use GuzzleHttp\Psr7\Request;
+use Psr\Http\Client\ClientInterface;
 
 class ExchangeRatesApiProvider implements RateProviderInterface {
     /**
@@ -22,18 +24,19 @@ class ExchangeRatesApiProvider implements RateProviderInterface {
     /**
      * Class constructor
      *
-     * @param string $apiUri
+     * @param string $serviceUrl
      * @param string $accessKey
-     * @param bool $httpsSupported
+     * @param bool $secureProtocol
      */
     public function __construct(
         // We able to use that form from latest PHP versions... It means we shouldn't define those properties in the class it self
-        private string $apiUri,
-        private string $accessKey,
-        private bool $httpsSupported = false
+        protected ClientInterface $httpClient,
+        protected string          $serviceUrl,
+        protected string          $accessKey,
+        protected bool $secureProtocol = false
     ) {
         $this->scheme = 'https';
-        if (!$this->httpsSupported) {
+        if (!$this->secureProtocol) {
             $this->scheme = 'http';
         }
 
@@ -46,49 +49,63 @@ class ExchangeRatesApiProvider implements RateProviderInterface {
     public function getRate(string $currency): float {
         $currency = mb_strtoupper($currency);
 
-        // If rate already available - just return it.
-        if (array_key_exists($currency, $this->cachedData)) {
-            return $this->cachedData[$currency];
+        // Should we get data from a remote server?
+        if (!array_key_exists($currency, $this->cachedData)) {
+            $url = $this->buildUrl();
+            $request = new Request(
+                'GET',
+                $url,
+                $this->prepareHeaders()
+            );
+            $response = $this->httpClient->sendRequest($request);
+            $statusCode = $response->getStatusCode();
+            if ($statusCode !== 200) {
+                throw new RatesUnavailableException(sprintf(
+                    'Unable to get rates. Status code: %d, Message: %s',
+                    $statusCode,
+                    $response->getReasonPhrase()
+                ));
+            }
+
+            try {
+                $rates = json_decode($response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException $exception) {
+                throw new RatesUnavailableException($exception->getMessage());
+            }
+
+            if (!isset($rates['rates']) || !array_key_exists($currency, $rates['rates'])) {
+                throw new UnsupportedCurrencyException(sprintf(
+                    'Unsupported currency: %s',
+                    $currency
+                ));
+            }
+
+            $this->cachedData = $rates['rates'];
         }
 
-        $ratesUrl = $this->buildUrl();
-        if (!$ratesData = file_get_contents($ratesUrl)) {
-            throw new RatesUnavailableException('Cannot get data from API');
-        }
-
-        try {
-            $rates = json_decode($ratesData, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            throw new RatesUnavailableException($exception->getMessage());
-        }
-
-        // If we have some errors in the API response, it means we can't return rates
-        if (isset($rates['success']) && !$rates['success']) {
-            throw new RatesUnavailableException($rates['error']['info']);
-        }
-
-        if (!isset($rates['rates']) || !array_key_exists($currency, $rates['rates'])) {
-            throw new UnsupportedCurrencyException(sprintf(
-                'Unsupported currency: %s',
-                $currency
-            ));
-        }
-
-        $this->cachedData[$currency] = floatval($rates['rates'][$currency]);
-        return $this->cachedData[$currency];
+        return floatval($this->cachedData[$currency]);
     }
 
     /**
-     * Building an URL to get currency rate
+     * Builds an URL to get currency rate
      *
      * @return string
      */
-    private function buildUrl(): string {
+    protected function buildUrl(): string {
         return sprintf(
             '%s://%s/latest?access_key=%s',
             $this->scheme,
-            $this->apiUri,
+            $this->serviceUrl,
             $this->accessKey,
         );
+    }
+
+    /**
+     * Prepare required headers. Authorization, for example
+     *
+     * @return array
+     */
+    protected function prepareHeaders(): array {
+        return [];
     }
 }
